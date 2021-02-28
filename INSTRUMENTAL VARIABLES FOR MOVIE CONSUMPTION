@@ -1,10 +1,10 @@
-#install.packages("haven")
+##install.packages("haven")
 #install.packages("pretty_breaks")
 library(haven) ## to help us read DTA files onto R
 
 movie_data <- read_dta(file = "ECON00192021.dta")
 
-## understanding the data first 
+## ----- understanding the data first 
 (movie_data$date)
 range(movie_data$date) ## date is from 2002 to 2012, spanning over 10 years
 
@@ -23,8 +23,25 @@ hist(movie_sub$open_ltickets)
 year_tickets <- movie_sub %>% group_by(year) %>% summarise(mean(tickets))
 plot(year_tickets)
 
-## using our (subset) dataset movie_sub, plot time series 
-colnames(movie_sub)
+## ----- tidy up the data - reorganize into weekends 
+movie_sub_tidied <- movie_sub %>% group_by(sat_date, week, year) %>%
+  summarise(sum(tickets)) %>% 
+  rename(tickets = 'sum(tickets)')
+
+
+## ----- using our (subset) dataset movie_sub, plot time series 
+## --- entire dataset
+ggplot(data = movie_sub_tidied) + 
+  geom_line(aes(x = sat_date, y = tickets)) +
+  scale_x_date(date_breaks = "1 year", 
+               date_labels = "%YY") 
+
+## --- for one year (2012)
+ggplot(data = filter(movie_sub_tidied, year == 2012)) + 
+  geom_line(aes(x = sat_date, y = tickets)) +
+  scale_x_date(date_breaks = "1 month", 
+               date_labels = "%B")
+
 
 ## check that data types are correct
 str(movie_sub)
@@ -32,14 +49,6 @@ movie_sub$date <- as.Date(movie_sub$date)
 movie_sub$sat_date <- as.Date(movie_sub$sat_date)
 typeof(movie_sub$date)
 
-#library(ggplot2)
-movie_sub2 <- movie_sub[movie_sub$year >= 2007, ]
-
-
-ggplot(data = movie_sub) + 
-  geom_line(aes(x = sat_date, y = tickets)) +
-  scale_x_date(date_breaks = "1 year", 
-               date_labels = "%YY")
   
 ## only 2012 data
 movie_2012 <- filter(movie_sub, year == 2012)
@@ -47,19 +56,33 @@ ggplot(data = movie_2012) +
   geom_line(aes(x = sat_date, y = tickets)) +
   scale_x_date(date_breaks = "1 month", date_labels = "%B")
 
+# install.packages("seastests")
+library(seastests)
+input <- (filter(movie_sub_tidied, year >= 2003)[c("sat_date", 'tickets')])
+input_ts <- ts(input, frequency = 365)
+summary(wo(input_ts))
+
+
+## is there seasonality
+date_tickets <- movie_sub %>% group_by(date) %>%
+  summarise(sum(tickets))
+
+date_tickets_2003_on <- date_tickets %>% filter(date >= 2003-01-01)
+
+summary(wo(date_tickets_2003_on$`sum(tickets)`, freq = 365))
+
+plot.ts(date_tickets)
+
 ## generate dummies for year 
 #install.packages("fastDummies")
-colnames(movie_sub)
-
-results <- fastDummies::dummy_cols(movie_sub, select_columns = c("year"))
-colnames(movie_sub)
-(knitr::kable(results))
-
+# colnames(movie_sub)
+# 
+# results <- fastDummies::dummy_cols(movie_sub, select_columns = c("year"))
+# colnames(movie_sub)
+# (knitr::kable(results))
 ## check dummies
 results %>% select(year_2002:year_2012)
 is.factor(results[, "year_2003"])
-
-
 
 
 ## regress against time dummies: is there a trend?
