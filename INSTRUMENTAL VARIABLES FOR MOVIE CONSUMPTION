@@ -1,0 +1,67 @@
+#install.packages("haven")
+#install.packages("pretty_breaks")
+library(haven) ## to help us read DTA files onto R
+
+movie_data <- read_dta(file = "ECON00192021.dta")
+
+## understanding the data first 
+(movie_data$date)
+range(movie_data$date) ## date is from 2002 to 2012, spanning over 10 years
+
+colnames(movie_data)
+head(movie_data)
+summary(movie_data)
+
+library(dplyr)
+movie_sub <- movie_data %>% select(date:open_rain)
+table(movie_sub$year)
+colnames(movie_sub)
+
+summary(movie_sub)
+hist(movie_sub$open_ltickets)
+
+year_tickets <- movie_sub %>% group_by(year) %>% summarise(mean(tickets))
+plot(year_tickets)
+
+## using our (subset) dataset movie_sub, plot time series 
+colnames(movie_sub)
+
+## check that data types are correct
+str(movie_sub)
+movie_sub$date <- as.Date(movie_sub$date)
+movie_sub$sat_date <- as.Date(movie_sub$sat_date)
+typeof(movie_sub$date)
+
+#library(ggplot2)
+movie_sub2 <- movie_sub[movie_sub$year >= 2007, ]
+
+
+ggplot(data = movie_sub) + 
+  geom_line(aes(x = sat_date, y = tickets)) +
+  scale_x_date(date_breaks = "1 year", 
+               date_labels = "%YY")
+  
+## only 2012 data
+movie_2012 <- filter(movie_sub, year == 2012)
+ggplot(data = movie_2012) + 
+  geom_line(aes(x = sat_date, y = tickets)) +
+  scale_x_date(date_breaks = "1 month", date_labels = "%B")
+
+## generate dummies for year 
+#install.packages("fastDummies")
+colnames(movie_sub)
+
+results <- fastDummies::dummy_cols(movie_sub, select_columns = c("year"))
+colnames(movie_sub)
+(knitr::kable(results))
+
+## check dummies
+results %>% select(year_2002:year_2012)
+is.factor(results[, "year_2003"])
+
+
+
+
+## regress against time dummies: is there a trend?
+yearly_trend <- lm(formula = tickets ~ as.factor(year), data = results)
+summary(yearly_trend)
